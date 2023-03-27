@@ -9,18 +9,19 @@ import os
 import time
 import traceback
 import argparse
+import sys
+import json
 
 
 class SecretsChecker:
     """Automatically check for secrets in files"""
     def __init__(self, args: dict):
-        """
-        Initialize attributes for SecretsChecker instance
-        """
-        self.__version__ = '1.0.0'
+        """Initialize attributes for SecretsChecker instance"""
+        self.__version__ = '1.1.0'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
+        self.stdin = ''
         self.results = []
         self.iteration = 0
         self.ignore_count = 0
@@ -31,7 +32,8 @@ class SecretsChecker:
                           '"secret[oO]ptions": \[',
                           '[gG]enerate[sS]ecret',
                           'secretsmanager:',
-                          ':secretsmanager'
+                          ':secretsmanager',
+                          'X-Amz-Expires'
                           ]
         self.regular_expressions = {"Slack Token": "(xox[pborsa]-[0-9]{12}-[0-9]{12}-[0-9]{12}-[a-z0-9]{32})",
                                     "RSA private key": "-----BEGIN RSA PRIVATE KEY-----",
@@ -90,14 +92,12 @@ class SecretsChecker:
                                     }
 
     def run(self):
-        """
-        Coordinates input, processing, and output tasks
-        """
-        # Enumerate files and check for secrets
+        """Coordinates input, processing, and output tasks"""
+        # Get input and process input
         start_time = time.time()
         try:
-            self.enumerate_files()
-            self.read_file()
+            self.get_input()
+            self.process_input()
         except KeyboardInterrupt:
             if self.results:
                 print('Stopping checks and writing results to disk')
@@ -107,10 +107,7 @@ class SecretsChecker:
 
         # Write results
         try:
-            if self.results:
-                self.write_results()
-            else:
-                print('No secrets found')
+            self.write_results()
         except Exception:
             print('Uncaught exception:')
             print(traceback.format_exc())
@@ -120,13 +117,13 @@ class SecretsChecker:
         # Print statistics
         total_time = time.time() - start_time
         if self.files:
-            print(f'Checked {len(self.files)} files in {"%.2f" % total_time} seconds')
+            if len(self.files) == 1:
+                print(f'Checked {len(self.files)} file in {"%.2f" % total_time} seconds')
+            else:
+                print(f'Checked {len(self.files)} files in {"%.2f" % total_time} seconds')
 
-
-    def enumerate_files(self):
-        """
-        Enumerates files in a given path
-        """
+    def get_input(self):
+        """Identifies in-scope files or retrieves input from standard in"""
         # Path provided
         if self.args['path']:
 
@@ -156,28 +153,51 @@ class SecretsChecker:
                 print(f'Filtered out {self.ignore_count} files containing the string "{self.args["ignore"]}"')
 
         # File provided
-        else:
+        elif self.args['file']:
             self.files.append(self.args['file'])
 
-    def read_file(self):
-        """Read file and check for secrets """
-        for file in self.files:
-            self.iteration += 1
-            print(f'\t[{self.iteration}/{len(self.files)}] Checking ' + file)
-            try:
-                with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
-                    for line in data_file:
-                        line = line.rstrip()
-                        found_secret = self.check_for_secrets(line)
-                        if found_secret[0]:
-                            for entry in found_secret[1]:
-                                temp_dict = {'File': file,
-                                             'Type': entry[0],
-                                             'FoundList': entry[1]
-                                             }
-                                self.results.append(temp_dict)
-            except PermissionError as error:
-                print(f'[ERROR] {error}')
+        # Standard in
+        elif self.args['stdin']:
+            stdin = sys.stdin.read()
+            self.stdin = stdin
+
+    def process_input(self):
+        """Read input and check for secrets """
+        if self.args['stdin']:
+            for line in self.stdin.splitlines():
+                try:
+                    found_secret = self.check_for_secrets(line)
+                    if found_secret[0]:
+                        for entry in found_secret[1]:
+                            temp_dict = {'File': 'StandardInput',
+                                         'Type': entry[0],
+                                         'FoundList': entry[1]
+                                         }
+                            self.results.append(temp_dict)
+                except Exception:
+                    print('Uncaught exception:')
+                    print(traceback.format_exc())
+        else:
+            for file in self.files:
+                self.iteration += 1
+                print(f'\t[{self.iteration}/{len(self.files)}] Checking ' + file)
+                try:
+                    with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
+                        for line in data_file:
+                            line = line.rstrip()
+                            found_secret = self.check_for_secrets(line)
+                            if found_secret[0]:
+                                for entry in found_secret[1]:
+                                    temp_dict = {'File': file,
+                                                 'Type': entry[0],
+                                                 'FoundList': entry[1]
+                                                 }
+                                    self.results.append(temp_dict)
+                except PermissionError as error:
+                    print(f'[ERROR] {error}')
+                except Exception:
+                    print('Uncaught exception:')
+                    print(traceback.format_exc())
 
     def check_for_secrets(self, string_to_check: str):
         """Check provided string for matches to known secret regular expressions"""
@@ -200,36 +220,47 @@ class SecretsChecker:
         return found, found_list
 
     def write_results(self):
-        """Write results to disk"""
-        if self.results:
-            with open(self.args['output'], 'w', encoding='utf-8', errors='ignore', newline='') as output:
-                writer = csv.DictWriter(output, fieldnames=self.csv_headers, quoting=csv.QUOTE_ALL, escapechar='\\')
-                writer.writeheader()
-                for result in self.results:
-                    try:
-                        writer.writerow(result)
-                    except Exception as error:
-                        print('[ERROR] ' + str(error))
-                        print(str(traceback.format_exc()))
-            print(f'Results written to {self.args["output"]}')
-        else:
-            print(f'No results found, checked {(len(self.files))} files')
+        """Write results to disk or display to standard out"""
+        if self.args['stdout']:
+            pretty_json = json.dumps(self.results, indent=4, default=str)
+            print(pretty_json)
+        if self.args['output']:
+            if self.results:
+                with open(self.args['output'], 'w', encoding='utf-8', errors='ignore', newline='') as output:
+                    writer = csv.DictWriter(output, fieldnames=self.csv_headers, quoting=csv.QUOTE_ALL, escapechar='\\')
+                    writer.writeheader()
+                    for result in self.results:
+                        try:
+                            writer.writerow(result)
+                        except Exception as error:
+                            print('[ERROR] ' + str(error))
+                            print(str(traceback.format_exc()))
+                print(f'Results written to {self.args["output"]}')
+            else:
+                print(f'No results found, checked {(len(self.files))} files')
 
 
 if __name__ == '__main__':
     """Run from CLI"""
+    # Defaults
+    default_output = 'secrets_checker.csv'
+    default_depth = 0
+
     # Parse arguments
     parser = argparse.ArgumentParser(description='Automatically check for secrets in files')
     input_group = parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument('--path', help='Path where files should be checked', type=str)
     input_group.add_argument('--file', help='Check only the file provided', type=str)
+    input_group.add_argument('--stdin', help='Check the input from standard in for secrets', action='store_true')
     options_group = parser.add_argument_group('File enumeration options')
-    options_group.add_argument('--depth', help='Depth when enumerating files, default=0', type=int, default=0)
+    options_group.add_argument('--depth', help=f'Depth when enumerating files, default={default_depth}', type=int,
+                               default=default_depth)
     options_group.add_argument('--ignore', help='Do not check files whose name or path contains the provided string',
                                type=str)
     output_group = parser.add_argument_group('Output options')
-    output_group.add_argument('--output', help='File to write results to, default="secrets_checker.csv"', type=str,
-                              default='secrets_checker.csv')
+    output_group.add_argument('--output', help=f'File to write results to, default="{default_output}"', type=str,
+                              default=default_output)
+    output_group.add_argument('--stdout', help='Print results to standard out', action='store_true')
     raw_args = parser.parse_args()
 
     # Validate arguments
@@ -242,6 +273,9 @@ if __name__ == '__main__':
     if raw_args.file:
         if not os.path.isfile(raw_args.file):
             parser.error(f'Provided directory "{raw_args.file}" for file argument')
+    if raw_args.stdout:
+        if raw_args.output == default_output:
+            raw_args.output = None
 
     # Launch
     arguments = raw_args.__dict__

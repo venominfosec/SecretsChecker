@@ -2,7 +2,6 @@
 
 # Automatically check for secrets in files
 
----
 
 ## Quick Run
 ```
@@ -13,13 +12,10 @@ python SecretsChecker.py --path /etc
 
 
 ## Input
-There are two input options:
+There are three input options:
 1. A single file (`--file`)
 2. All files in a given path (`--path`)
-
-If `--path` is specified, SecretsChecker will recursively enumerate all files in a given path. The `--depth` argument can be used to limit how deep the recursive enumeration will go.
-
-The `--ignore` argument can be used to ignore all identified files whose path or filename contains the provided string.
+3. Input from standard in (`--stdin`)
 
 ### Single File
 ```
@@ -30,8 +26,13 @@ Checked 1 files in 0.01 seconds
 ```
 
 ### Multiple Files
+| Argument | Purpose                                                            |
+|----------|--------------------------------------------------------------------|
+| --path   | Check all files in the provided path                               |
+| --depth  | Depth when enumerating files within the provided path              |
+| --ignore | Do not check files whose name or path contains the provided string |
 ```
-# python SecretsChecker.py --path C:\secrets --ignore "node_modules" --depth 1 --output custom_output_name.csv
+# python SecretsChecker.py --path C:\secrets --ignore "node_modules" --depth 1 --output custom_name.csv
 Enumerating files in path "C:\secrets"
 Filtered out 10 files containing the string "node_modules"
         [1/5] Checking C:\secrets\access_keys.txt
@@ -39,14 +40,22 @@ Filtered out 10 files containing the string "node_modules"
         [3/5] Checking C:\secrets\secrets.txt
         [4/5] Checking C:\secrets\tokens.txt
         [5/5] Checking C:\secrets\config\web.config
-Results written to custom_output_name.csv
+Results written to custom_name.csv
 Checked 5 files in 0.01 seconds
 ```
 
+### Standard Input
+```
+# cat secrets.txt | python SecretsChecker.py --stdin
+Results written to secrets_checker.csv
+```
 
 ## Output
-Results are written to a CSV called *secrets_checker.csv*  or whatever string is specified as the value for the `--output` argument.
+There are two output options:
+1. Write to CSV file, *secrets_checker.csv* by default or a custom name with `--output` argument
+2. Standard out (`--stdout`)
 
+### CSV File
 An example output is below:
 
 | File                       | Type                         | FoundList                                                        |
@@ -64,6 +73,29 @@ An example output is below:
 | C:\secrets\secrets.txt     | RSA private key              | -----BEGIN RSA PRIVATE KEY-----                                  |
 | C:\secrets\secrets.txt     | Potential Private Key        | -----BEGIN RSA PRIVATE KEY-----                                  |
 
+### Standard Out
+An example output is below:
+
+```
+# cat secrets.txt | python SecretsChecker.py --stdin --stdout
+[
+    {
+        "File": "StandardInput",
+        "Type": "Potential SSN",
+        "FoundList": "333-22-4444"
+    },
+    {
+        "File": "StandardInput",
+        "Type": "RSA private key",
+        "FoundList": "-----BEGIN RSA PRIVATE KEY-----"
+    },
+    {
+        "File": "StandardInput",
+        "Type": "Potential Private Key",
+        "FoundList": "-----BEGIN RSA PRIVATE KEY-----"
+    }
+]
+```
 
 ## Supported Secret Types
 * AWS API Key
@@ -123,8 +155,9 @@ An example output is below:
 ## Help
 ```
 # python SecretsChecker.py --help
-usage: SecretsChecker.py [-h] (--path PATH | --file FILE) [--depth DEPTH]
-                         [--ignore IGNORE] [--output OUTPUT]
+usage: SecretsChecker.py [-h] (--path PATH | --file FILE | --stdin)
+                         [--depth DEPTH] [--ignore IGNORE] [--output OUTPUT]
+                         [--stdout]
 
 Automatically check for secrets in files
 
@@ -132,6 +165,7 @@ optional arguments:
   -h, --help       show this help message and exit
   --path PATH      Path where files should be checked
   --file FILE      Check only the file provided
+  --stdin          Check the input from standard in for secrets
 
 File enumeration options:
   --depth DEPTH    Depth when enumerating files, default=0
@@ -140,4 +174,5 @@ File enumeration options:
 
 Output options:
   --output OUTPUT  File to write results to, default="secrets_checker.csv"
+  --stdout         Print results to standard out
 ```
