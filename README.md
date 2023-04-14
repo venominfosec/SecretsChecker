@@ -31,6 +31,7 @@ Checked 1 files in 0.01 seconds
 | --path   | Check all files in the provided path                               |
 | --depth  | Depth when enumerating files within the provided path              |
 | --ignore | Do not check files whose name or path contains the provided string |
+| --text   | Process a binary file as if it were text                           |
 ```
 # python SecretsChecker.py --path C:\secrets --ignore "node_modules" --depth 1 --output custom_name.csv
 Enumerating files in path "C:\secrets"
