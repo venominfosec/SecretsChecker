@@ -17,7 +17,7 @@ class SecretsChecker:
     """Automatically check for secrets in files"""
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.1.0'
+        self.__version__ = '1.2.0'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -25,6 +25,7 @@ class SecretsChecker:
         self.results = []
         self.iteration = 0
         self.ignore_count = 0
+        self.checked_count = 0
         self.deny_list = ['arn:aws:secretsmanager:',
                           'passwd: true',
                           'passwd:all',
@@ -118,9 +119,9 @@ class SecretsChecker:
         total_time = time.time() - start_time
         if self.files:
             if len(self.files) == 1:
-                print(f'Checked {len(self.files)} file in {"%.2f" % total_time} seconds')
+                print(f'Checked {self.checked_count} file in {"%.2f" % total_time} seconds')
             else:
-                print(f'Checked {len(self.files)} files in {"%.2f" % total_time} seconds')
+                print(f'Checked {self.checked_count} files in {"%.2f" % total_time} seconds')
 
     def get_input(self):
         """Identifies in-scope files or retrieves input from standard in"""
@@ -138,9 +139,13 @@ class SecretsChecker:
             for dir_name, subdir_list, file_list in os.walk(self.args['path'], topdown=True):
                 for filename in file_list:
                     full_path_and_name = str(str(dir_name) + os.sep + filename).replace(os.sep*2, os.sep)
+                    # Filter out ignore strings
                     if self.args['ignore']:
-                        # Filter out ignore string
-                        if self.args['ignore'] not in full_path_and_name:
+                        ignore_file = False
+                        for ignore_string in self.args['ignore']:
+                            if ignore_string in full_path_and_name:
+                                ignore_file = True
+                        if not ignore_file:
                             self.files.append(full_path_and_name)
                         else:
                             self.ignore_count += 1
@@ -150,7 +155,7 @@ class SecretsChecker:
                 if dir_name.count(os.sep) - self.args['path'].count(os.sep) == self.args['depth']:
                     del subdir_list[:]
             if self.args['ignore']:
-                print(f'Filtered out {self.ignore_count} files containing the string "{self.args["ignore"]}"')
+                print(f'Filtered out {self.ignore_count} files containing the strings: {", ".join(self.args["ignore"])}')
 
         # File provided
         elif self.args['file']:
@@ -180,19 +185,28 @@ class SecretsChecker:
         else:
             for file in self.files:
                 self.iteration += 1
+                is_checked = True
                 print(f'\t[{self.iteration}/{len(self.files)}] Checking ' + file)
                 try:
                     with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
                         for line in data_file:
                             line = line.rstrip()
-                            found_secret = self.check_for_secrets(line)
-                            if found_secret[0]:
-                                for entry in found_secret[1]:
-                                    temp_dict = {'File': file,
-                                                 'Type': entry[0],
-                                                 'FoundList': entry[1]
-                                                 }
-                                    self.results.append(temp_dict)
+                            is_binary = b'\x00' in bytes(str(line).encode('utf-8'))
+                            if self.args['path'] and is_binary and not self.args['text']:
+                                print('\t\tBinary file detected, skipping checks')
+                                is_checked = False
+                                break
+                            else:
+                                found_secret = self.check_for_secrets(line)
+                                if found_secret[0]:
+                                    for entry in found_secret[1]:
+                                        temp_dict = {'File': file,
+                                                     'Type': entry[0],
+                                                     'FoundList': entry[1]
+                                                     }
+                                        self.results.append(temp_dict)
+                        if is_checked:
+                            self.checked_count += 1
                 except PermissionError as error:
                     print(f'[ERROR] {error}')
                 except Exception:
@@ -252,11 +266,13 @@ if __name__ == '__main__':
     input_group.add_argument('--path', help='Path where files should be checked', type=str)
     input_group.add_argument('--file', help='Check only the file provided', type=str)
     input_group.add_argument('--stdin', help='Check the input from standard in for secrets', action='store_true')
-    options_group = parser.add_argument_group('File enumeration options')
+    options_group = parser.add_argument_group('Path input options')
     options_group.add_argument('--depth', help=f'Depth when enumerating files, default={default_depth}', type=int,
                                default=default_depth)
-    options_group.add_argument('--ignore', help='Do not check files whose name or path contains the provided string',
-                               type=str)
+    options_group.add_argument('--ignore', help='Do not check files whose name or path contains the provided string, '
+                                                'can use multiple times',
+                               type=str, action='append')
+    options_group.add_argument('--text', help='Process a binary file as if it were text', action='store_true')
     output_group = parser.add_argument_group('Output options')
     output_group.add_argument('--output', help=f'File to write results to, default="{default_output}"', type=str,
                               default=default_output)
@@ -266,13 +282,19 @@ if __name__ == '__main__':
     # Validate arguments
     if raw_args.path:
         if not os.path.isdir(raw_args.path):
-            parser.error(f'Provided file "{raw_args.path}" for path argument')
+            if os.path.isfile(raw_args.path):
+                parser.error(f'Provided file "{raw_args.path}" for path argument')
+            else:
+                parser.error(f'Provided string "{raw_args.path}" is not a path or file')
         if raw_args.path[-1] == '/' or raw_args.path[-1] == '\\':
             if len(raw_args.path) > 1:
                 raw_args.path = raw_args.path[:-1]
     if raw_args.file:
         if not os.path.isfile(raw_args.file):
-            parser.error(f'Provided directory "{raw_args.file}" for file argument')
+            if os.path.isdir(raw_args.file):
+                parser.error(f'Provided directory "{raw_args.file}" for file argument')
+            else:
+                parser.error(f'Provided string "{raw_args.file}" is not a path or file')
     if raw_args.stdout:
         if raw_args.output == default_output:
             raw_args.output = None
