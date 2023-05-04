@@ -17,7 +17,7 @@ class SecretsChecker:
     """Automatically check for secrets in files"""
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.2.0'
+        self.__version__ = '1.2.1'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -51,6 +51,7 @@ class SecretsChecker:
                                     "Facebook OAuth": "[fF][aA][cC][eE][bB][oO][oO][kK].*['|\"][0-9a-f]{32}['|\"]",
                                     "GitHub": "[gG][iI][tT][hH][uU][bB].*['|\"][0-9a-zA-Z]{35,40}['|\"]",
                                     "Generic API Key": "[aA][pP][iI]_?[kK][eE][yY].*['|\"][0-9a-zA-Z]{32,45}['|\"]",
+                                    "Generic API Token": "[aA][pP][iI]_?[tT][oO][kK][eE][nN].*['|\"][0-9a-zA-Z]{32,45}['|\"]",
                                     "Generic Secret": "[sS][eE][cC][rR][eE][tT].*['|\"][0-9a-zA-Z]{32,45}['|\"]",
                                     "Google API Key": "AIza[0-9A-Za-z\\-_]{35}",
                                     "Google Cloud Platform API Key": "AIza[0-9A-Za-z\\-_]{35}",
@@ -118,7 +119,7 @@ class SecretsChecker:
         # Print statistics
         total_time = time.time() - start_time
         if self.files:
-            if len(self.files) == 1:
+            if self.checked_count == 1:
                 print(f'Checked {self.checked_count} file in {"%.2f" % total_time} seconds')
             else:
                 print(f'Checked {self.checked_count} files in {"%.2f" % total_time} seconds')
