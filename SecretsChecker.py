@@ -17,7 +17,7 @@ class SecretsChecker:
     """Automatically check for secrets in files"""
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.2.1'
+        self.__version__ = '1.3.0'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -36,7 +36,7 @@ class SecretsChecker:
                           ':secretsmanager',
                           'X-Amz-Expires'
                           ]
-        self.regular_expressions = {"Slack Token": "(xox[pborsa]-[0-9]{12}-[0-9]{12}-[0-9]{12}-[a-z0-9]{32})",
+        self.regular_expressions = {"Slack Token": "(xox[pboar]|xapp)(-[a-zA-Z0-9]+)+",
                                     "RSA private key": "-----BEGIN RSA PRIVATE KEY-----",
                                     "SSH (DSA) private key": "-----BEGIN DSA PRIVATE KEY-----",
                                     "SSH (EC) private key": "-----BEGIN EC PRIVATE KEY-----",
@@ -49,7 +49,8 @@ class SecretsChecker:
                                     "AWS AppSync GraphQL Key": "da2-[a-z0-9]{26}",
                                     "Facebook Access Token": "EAACEdEose0cBA[0-9A-Za-z]+",
                                     "Facebook OAuth": "[fF][aA][cC][eE][bB][oO][oO][kK].*['|\"][0-9a-f]{32}['|\"]",
-                                    "GitHub": "[gG][iI][tT][hH][uU][bB].*['|\"][0-9a-zA-Z]{35,40}['|\"]",
+                                    "GitHub - Check 1": "[gG][iI][tT][hH][uU][bB].*['|\"][0-9a-zA-Z]{35,40}['|\"]",
+                                    "GitHub - Check 2": "gh[pousr]_[A-Za-z0-9_]{35,255}",
                                     "Generic API Key": "[aA][pP][iI]_?[kK][eE][yY].*['|\"][0-9a-zA-Z]{32,45}['|\"]",
                                     "Generic API Token": "[aA][pP][iI]_?[tT][oO][kK][eE][nN].*['|\"][0-9a-zA-Z]{32,45}['|\"]",
                                     "Generic Secret": "[sS][eE][cC][rR][eE][tT].*['|\"][0-9a-zA-Z]{32,45}['|\"]",
@@ -69,6 +70,7 @@ class SecretsChecker:
                                     "Mailgun API Key": "key-[0-9a-zA-Z]{32}",
                                     "Password in URL": "[a-zA-Z]{3,10}://[^/\\s:@]{3,20}:[^/\\s:@]{3,20}@.{1,100}[\"'\s]",
                                     "PayPal Braintree Access Token": "access_token\\$production\\$[0-9a-z]{16}\\$[0-9a-f]{32}",
+                                    "Braintree SDK Token": "(production|sandbox)_[a-z0-9]{8}_[a-z0-9]{16}",
                                     "Picatic API Key": "sk_live_[0-9a-z]{32}",
                                     "Slack Webhook": "https://hooks\\.slack\\.com/services/T[a-zA-Z0-9_]{8}/B[a-zA-Z0-9_]{8}/[a-zA-Z0-9_]{24}",
                                     "Stripe API Key": "sk_live_[0-9a-zA-Z]{24}",
@@ -90,7 +92,11 @@ class SecretsChecker:
                                     "Potential Authorization Token - Check 1": "[aA][uU][tT][hH].[tT][oO][kK][eE][nN]",
                                     "Potential Authorization Token - Check 2": "[aA][uU][tT][hH][oO][rR][iI][zZ][aA][tT][iI][oO][nN].[tT][oO][kK][eE][nN]",
                                     "Potential Authorization Token - Check 3": "[aA][uU][tT][hH][oO][rR][iI][zZ][aA][tT][iI][oO][nN].[bB][eE][aA][rR][eE][rR]",
-                                    "Potential SSN": "(?!0{3})(?!6{3})[0-8]\d{2}-(?!0{2})\d{2}-(?!0{4})\d{4}"
+                                    "Potential SSN": "(?!000|666|900-999)[0-9]{3}-[0-9]{2}-[0-9]{4}",
+                                    "Encapsulation Boundary": "-----BEGIN",
+                                    "NuGet API Key": "oy2[a-z0-9]{43}(?![a-z0-9])",
+                                    "SendGrid API Key": "SG\\.[0-9A-Za-z\\-_]{22}\\.[0-9A-Za-z\\-_]{43}",
+                                    "StackHawk API Key": "hawk(\\.[\\w\\-]{20})+"
                                     }
 
     def run(self):
