@@ -17,7 +17,7 @@ class SecretsChecker:
     """Automatically check for secrets in files"""
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.3.0'
+        self.__version__ = '1.3.1'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -93,7 +93,6 @@ class SecretsChecker:
                                     "Potential Authorization Token - Check 2": "[aA][uU][tT][hH][oO][rR][iI][zZ][aA][tT][iI][oO][nN].[tT][oO][kK][eE][nN]",
                                     "Potential Authorization Token - Check 3": "[aA][uU][tT][hH][oO][rR][iI][zZ][aA][tT][iI][oO][nN].[bB][eE][aA][rR][eE][rR]",
                                     "Potential SSN": "(?!000|666|900-999)[0-9]{3}-[0-9]{2}-[0-9]{4}",
-                                    "Encapsulation Boundary": "-----BEGIN",
                                     "NuGet API Key": "oy2[a-z0-9]{43}(?![a-z0-9])",
                                     "SendGrid API Key": "SG\\.[0-9A-Za-z\\-_]{22}\\.[0-9A-Za-z\\-_]{43}",
                                     "StackHawk API Key": "hawk(\\.[\\w\\-]{20})+"
