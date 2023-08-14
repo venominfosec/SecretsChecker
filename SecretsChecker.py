@@ -17,7 +17,7 @@ class SecretsChecker:
     """Automatically check for secrets in files"""
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.3.1'
+        self.__version__ = '1.4.0'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -26,6 +26,7 @@ class SecretsChecker:
         self.iteration = 0
         self.ignore_count = 0
         self.checked_count = 0
+        self.line_limit = 28000
         self.deny_list = ['arn:aws:secretsmanager:',
                           'passwd: true',
                           'passwd:all',
@@ -192,14 +193,24 @@ class SecretsChecker:
             for file in self.files:
                 self.iteration += 1
                 is_checked = True
-                print(f'\t[{self.iteration}/{len(self.files)}] Checking ' + file)
+                if not self.args['quiet']:
+                    print(f'\t[{self.iteration}/{len(self.files)}] Checking ' + file)
+                else:
+                    percentage = float(float(self.iteration) / float(len(self.files)) * 100)
+                    print(f'\t[{self.iteration}/{len(self.files)}] {"%.2f" % percentage}%' + ' '*25, end='\r')
                 try:
                     with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
                         for line in data_file:
                             line = line.rstrip()
                             is_binary = b'\x00' in bytes(str(line).encode('utf-8'))
                             if self.args['path'] and is_binary and not self.args['text']:
-                                print('\t\tBinary file detected, skipping checks')
+                                if not self.args['quiet']:
+                                    print('\t\tBinary file detected, skipping checks')
+                                is_checked = False
+                                break
+                            elif self.args['no_check_long'] and len(line) > self.line_limit:
+                                if not self.args['quiet']:
+                                    print('\t\tOverly long line identified, skipping checks')
                                 is_checked = False
                                 break
                             else:
@@ -272,13 +283,18 @@ if __name__ == '__main__':
     input_group.add_argument('--path', help='Path where files should be checked', type=str)
     input_group.add_argument('--file', help='Check only the file provided', type=str)
     input_group.add_argument('--stdin', help='Check the input from standard in for secrets', action='store_true')
-    options_group = parser.add_argument_group('Path input options')
-    options_group.add_argument('--depth', help=f'Depth when enumerating files, default={default_depth}', type=int,
+    path_options_group = parser.add_argument_group('Path input options')
+    path_options_group.add_argument('--depth', help=f'Depth when enumerating files, default={default_depth}', type=int,
                                default=default_depth)
-    options_group.add_argument('--ignore', help='Do not check files whose name or path contains the provided string, '
+    path_options_group.add_argument('--ignore', help='Do not check files whose name or path contains the provided string, '
                                                 'can use multiple times',
                                type=str, action='append')
+    options_group = parser.add_argument_group('General options')
+    options_group.add_argument('--quiet', help='Only print the status of file checking, not the file being checked',
+                               action='store_true')
     options_group.add_argument('--text', help='Process a binary file as if it were text', action='store_true')
+    options_group.add_argument('--no-check-long', help='Do not check overly long lines',
+                               action='store_true')
     output_group = parser.add_argument_group('Output options')
     output_group.add_argument('--output', help=f'File to write results to, default="{default_output}"', type=str,
                               default=default_output)
