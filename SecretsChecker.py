@@ -15,9 +15,10 @@ import json
 
 class SecretsChecker:
     """Automatically check for secrets in files"""
+
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.4.0'
+        self.__version__ = '1.5.0'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -35,7 +36,8 @@ class SecretsChecker:
                           '[gG]enerate[sS]ecret',
                           'secretsmanager:',
                           ':secretsmanager',
-                          'X-Amz-Expires'
+                          'X-Amz-Expires',
+                          ':secret:'
                           ]
         self.regular_expressions = {"Slack Token": "(xox[pboar]|xapp)(-[a-zA-Z0-9]+)+",
                                     "RSA private key": "-----BEGIN RSA PRIVATE KEY-----",
@@ -145,7 +147,7 @@ class SecretsChecker:
             print(f'Enumerating files in path "{self.args["path"]}"')
             for dir_name, subdir_list, file_list in os.walk(self.args['path'], topdown=True):
                 for filename in file_list:
-                    full_path_and_name = str(str(dir_name) + os.sep + filename).replace(os.sep*2, os.sep)
+                    full_path_and_name = str(str(dir_name) + os.sep + filename).replace(os.sep * 2, os.sep)
                     # Filter out ignore strings
                     if self.args['ignore']:
                         ignore_file = False
@@ -197,7 +199,7 @@ class SecretsChecker:
                     print(f'\t[{self.iteration}/{len(self.files)}] Checking ' + file)
                 else:
                     percentage = float(float(self.iteration) / float(len(self.files)) * 100)
-                    print(f'\t[{self.iteration}/{len(self.files)}] {"%.2f" % percentage}%' + ' '*25, end='\r')
+                    print(f'\t[{self.iteration}/{len(self.files)}] {"%.2f" % percentage}%' + ' ' * 25, end='\r')
                 try:
                     with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
                         for line in data_file:
@@ -211,6 +213,11 @@ class SecretsChecker:
                             elif self.args['no_check_long'] and len(line) > self.line_limit:
                                 if not self.args['quiet']:
                                     print('\t\tOverly long line identified, skipping checks')
+                                is_checked = False
+                                break
+                            elif self.args['max_file_size'] and not self.is_file_size_within_limit(file, self.args['max_file_size']):
+                                if not self.args['quiet']:
+                                    print('\t\tOverly large file detected, skipping checks')
                                 is_checked = False
                                 break
                             else:
@@ -270,6 +277,16 @@ class SecretsChecker:
             else:
                 print(f'No results found, checked {(len(self.files))} files')
 
+    @staticmethod
+    def is_file_size_within_limit(file_path, max_size_gb):
+        """Check if file size is within limit"""
+        try:
+            file_size_bytes = os.path.getsize(file_path)
+            max_size_bytes = max_size_gb * 1024 ** 3  # Convert GB to bytes
+            return file_size_bytes <= max_size_bytes
+        except FileNotFoundError:
+            return False
+
 
 if __name__ == '__main__':
     """Run from CLI"""
@@ -280,25 +297,46 @@ if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Automatically check for secrets in files')
     input_group = parser.add_mutually_exclusive_group(required=True)
-    input_group.add_argument('--path', help='Path where files should be checked', type=str)
-    input_group.add_argument('--file', help='Check only the file provided', type=str)
-    input_group.add_argument('--stdin', help='Check the input from standard in for secrets', action='store_true')
+    input_group.add_argument('--path',
+                             help='Path where files should be checked',
+                             type=str)
+    input_group.add_argument('--file',
+                             help='Check only the file provided',
+                             type=str)
+    input_group.add_argument('--stdin',
+                             help='Check the input from standard in for secrets',
+                             action='store_true')
     path_options_group = parser.add_argument_group('Path input options')
-    path_options_group.add_argument('--depth', help=f'Depth when enumerating files, default={default_depth}', type=int,
-                               default=default_depth)
-    path_options_group.add_argument('--ignore', help='Do not check files whose name or path contains the provided string, '
-                                                'can use multiple times',
-                               type=str, action='append')
+    path_options_group.add_argument('--depth',
+                                    help=f'Depth when enumerating files, default={default_depth}, use "-1" for '
+                                         f'unlimited',
+                                    type=int,
+                                    default=default_depth)
+    path_options_group.add_argument('--ignore',
+                                    help='Do not check files whose name or path contains the provided string, '
+                                         'can use multiple times',
+                                    type=str, action='append')
     options_group = parser.add_argument_group('General options')
-    options_group.add_argument('--quiet', help='Only print the status of file checking, not the file being checked',
+    options_group.add_argument('--quiet',
+                               help='Only print the status of file checking, not the file being checked',
                                action='store_true')
-    options_group.add_argument('--text', help='Process a binary file as if it were text', action='store_true')
-    options_group.add_argument('--no-check-long', help='Do not check overly long lines',
+    options_group.add_argument('--text',
+                               help='Process a binary file as if it were text',
                                action='store_true')
+    options_group.add_argument('--no-check-long',
+                               help='Do not check overly long lines',
+                               action='store_true')
+    options_group.add_argument('--max-file-size',
+                               help='Do not check files larger than the provided size (in GB)',
+                               type=float)
     output_group = parser.add_argument_group('Output options')
-    output_group.add_argument('--output', help=f'File to write results to, default="{default_output}"', type=str,
+    output_group.add_argument('--output',
+                              help=f'File to write results to, default="{default_output}"',
+                              type=str,
                               default=default_output)
-    output_group.add_argument('--stdout', help='Print results to standard out', action='store_true')
+    output_group.add_argument('--stdout',
+                              help='Print results to standard out',
+                              action='store_true')
     raw_args = parser.parse_args()
 
     # Validate arguments
@@ -323,5 +361,5 @@ if __name__ == '__main__':
 
     # Launch
     arguments = raw_args.__dict__
-    secrets_checker_class = SecretsChecker(arguments)
-    secrets_checker_class.run()
+    sc = SecretsChecker(arguments)
+    sc.run()
