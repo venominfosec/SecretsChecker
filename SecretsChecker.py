@@ -18,7 +18,7 @@ class SecretsChecker:
 
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.5.1'
+        self.__version__ = '1.5.2'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -205,7 +205,6 @@ class SecretsChecker:
                         if not self.args['quiet']:
                             print('\t\tOverly large file detected, skipping checks')
                         is_checked = False
-                        break
                     else:
                         with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
                             for line in data_file:
