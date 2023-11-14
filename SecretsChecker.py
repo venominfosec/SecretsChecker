@@ -18,7 +18,7 @@ class SecretsChecker:
 
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.5.0'
+        self.__version__ = '1.5.1'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -201,34 +201,35 @@ class SecretsChecker:
                     percentage = float(float(self.iteration) / float(len(self.files)) * 100)
                     print(f'\t[{self.iteration}/{len(self.files)}] {"%.2f" % percentage}%' + ' ' * 25, end='\r')
                 try:
-                    with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
-                        for line in data_file:
-                            line = line.rstrip()
-                            is_binary = b'\x00' in bytes(str(line).encode('utf-8'))
-                            if self.args['path'] and is_binary and not self.args['text']:
-                                if not self.args['quiet']:
-                                    print('\t\tBinary file detected, skipping checks')
-                                is_checked = False
-                                break
-                            elif self.args['no_check_long'] and len(line) > self.line_limit:
-                                if not self.args['quiet']:
-                                    print('\t\tOverly long line identified, skipping checks')
-                                is_checked = False
-                                break
-                            elif self.args['max_file_size'] and not self.is_file_size_within_limit(file, self.args['max_file_size']):
-                                if not self.args['quiet']:
-                                    print('\t\tOverly large file detected, skipping checks')
-                                is_checked = False
-                                break
-                            else:
-                                found_secret = self.check_for_secrets(line)
-                                if found_secret[0]:
-                                    for entry in found_secret[1]:
-                                        temp_dict = {'File': file,
-                                                     'Type': entry[0],
-                                                     'FoundList': entry[1]
-                                                     }
-                                        self.results.append(temp_dict)
+                    if self.args['max_file_size'] and not self.is_file_size_within_limit(file, self.args['max_file_size']):
+                        if not self.args['quiet']:
+                            print('\t\tOverly large file detected, skipping checks')
+                        is_checked = False
+                        break
+                    else:
+                        with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
+                            for line in data_file:
+                                line = line.rstrip()
+                                is_binary = b'\x00' in bytes(str(line).encode('utf-8'))
+                                if self.args['path'] and is_binary and not self.args['text']:
+                                    if not self.args['quiet']:
+                                        print('\t\tBinary file detected, skipping checks')
+                                    is_checked = False
+                                    break
+                                elif self.args['no_check_long'] and len(line) > self.line_limit:
+                                    if not self.args['quiet']:
+                                        print('\t\tOverly long line identified, skipping checks')
+                                    is_checked = False
+                                    break
+                                else:
+                                    found_secret = self.check_for_secrets(line)
+                                    if found_secret[0]:
+                                        for entry in found_secret[1]:
+                                            temp_dict = {'File': file,
+                                                         'Type': entry[0],
+                                                         'FoundList': entry[1]
+                                                         }
+                                            self.results.append(temp_dict)
                         if is_checked:
                             self.checked_count += 1
                 except PermissionError as error:
