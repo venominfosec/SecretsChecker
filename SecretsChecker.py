@@ -18,7 +18,7 @@ class SecretsChecker:
 
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.5.2'
+        self.__version__ = '1.5.3'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -195,17 +195,20 @@ class SecretsChecker:
             for file in self.files:
                 self.iteration += 1
                 is_checked = True
+                too_big = False
                 if not self.args['quiet']:
                     print(f'\t[{self.iteration}/{len(self.files)}] Checking ' + file)
                 else:
                     percentage = float(float(self.iteration) / float(len(self.files)) * 100)
                     print(f'\t[{self.iteration}/{len(self.files)}] {"%.2f" % percentage}%' + ' ' * 25, end='\r')
                 try:
-                    if self.args['max_file_size'] and not self.is_file_size_within_limit(file, self.args['max_file_size']):
-                        if not self.args['quiet']:
-                            print('\t\tOverly large file detected, skipping checks')
-                        is_checked = False
-                    else:
+                    if self.args['max_file_size']:
+                        if not self.is_file_size_within_limit(file, self.args['max_file_size']):
+                            if not self.args['quiet']:
+                                print('\t\tOverly large file detected, skipping checks')
+                            too_big = True
+                            is_checked = False
+                    if not too_big:
                         with open(file, 'r', encoding='utf-8', errors='ignore') as data_file:
                             for line in data_file:
                                 line = line.rstrip()
@@ -215,7 +218,7 @@ class SecretsChecker:
                                         print('\t\tBinary file detected, skipping checks')
                                     is_checked = False
                                     break
-                                elif self.args['no_check_long'] and len(line) > self.line_limit:
+                                elif not self.args['check_long'] and len(line) > self.line_limit:
                                     if not self.args['quiet']:
                                         print('\t\tOverly long line identified, skipping checks')
                                     is_checked = False
@@ -323,8 +326,8 @@ if __name__ == '__main__':
     options_group.add_argument('--text',
                                help='Process a binary file as if it were text',
                                action='store_true')
-    options_group.add_argument('--no-check-long',
-                               help='Do not check overly long lines',
+    options_group.add_argument('--check-long',
+                               help='Check overly long lines',
                                action='store_true')
     options_group.add_argument('--max-file-size',
                                help='Do not check files larger than the provided size (in GB)',
