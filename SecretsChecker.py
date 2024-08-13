@@ -18,7 +18,7 @@ class SecretsChecker:
 
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.5.3'
+        self.__version__ = '1.6.0'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -31,13 +31,14 @@ class SecretsChecker:
         self.deny_list = ['arn:aws:secretsmanager:',
                           'passwd: true',
                           'passwd:all',
-                          '"secrets": \[',
-                          '"secret[oO]ptions": \[',
+                          r'"secrets": \[',
+                          r'"secret[oO]ptions": \[',
                           '[gG]enerate[sS]ecret',
                           'secretsmanager:',
                           ':secretsmanager',
                           'X-Amz-Expires',
-                          ':secret:'
+                          ':secret:',
+                          'NOPASSWD'
                           ]
         self.regular_expressions = {"Slack Token": "(xox[pboar]|xapp)(-[a-zA-Z0-9]+)+",
                                     "RSA private key": "-----BEGIN RSA PRIVATE KEY-----",
@@ -71,7 +72,7 @@ class SecretsChecker:
                                     "Heroku API Key": "[hH][eE][rR][oO][kK][uU].*[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}",
                                     "MailChimp API Key": "[0-9a-f]{32}-us[0-9]{1,2}",
                                     "Mailgun API Key": "key-[0-9a-zA-Z]{32}",
-                                    "Password in URL": "[a-zA-Z]{3,10}://[^/\\s:@]{3,20}:[^/\\s:@]{3,20}@.{1,100}[\"'\s]",
+                                    "Password in URL": r"[a-zA-Z]{3,10}://[^/\\s:@]{3,20}:[^/\\s:@]{3,20}@.{1,100}[\"'\s]",
                                     "PayPal Braintree Access Token": "access_token\\$production\\$[0-9a-z]{16}\\$[0-9a-f]{32}",
                                     "Braintree SDK Token": "(production|sandbox)_[a-z0-9]{8}_[a-z0-9]{16}",
                                     "Picatic API Key": "sk_live_[0-9a-z]{32}",
