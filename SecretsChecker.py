@@ -18,7 +18,7 @@ class SecretsChecker:
 
     def __init__(self, args: dict):
         """Initialize attributes for SecretsChecker instance"""
-        self.__version__ = '1.6.0'
+        self.__version__ = '1.6.1'
         self.args = args
         self.csv_headers = ['File', 'Type', 'FoundList']
         self.files = []
@@ -149,6 +149,9 @@ class SecretsChecker:
             for dir_name, subdir_list, file_list in os.walk(self.args['path'], topdown=True):
                 for filename in file_list:
                     full_path_and_name = str(str(dir_name) + os.sep + filename).replace(os.sep * 2, os.sep)
+                    # Include only paths containing the grep string
+                    if self.args['grep'] and self.args['grep'] not in full_path_and_name:
+                        continue
                     # Filter out ignore strings
                     if self.args['ignore']:
                         ignore_file = False
@@ -320,6 +323,9 @@ if __name__ == '__main__':
                                     help='Do not check files whose name or path contains the provided string, '
                                          'can use multiple times',
                                     type=str, action='append')
+    path_options_group.add_argument('--grep',
+                                    help='Only check files whose path contains the provided string',
+                                    type=str)
     options_group = parser.add_argument_group('General options')
     options_group.add_argument('--quiet',
                                help='Only print the status of file checking, not the file being checked',

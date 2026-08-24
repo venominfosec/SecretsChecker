@@ -31,6 +31,7 @@ Checked 1 files in 0.01 seconds
 | --path   | Check all files in the provided path                               |
 | --depth  | Depth when enumerating files within the provided path              |
 | --ignore | Do not check files whose name or path contains the provided string |
+| --grep   | Only check files whose path contains the provided string           |
 | --text   | Process a binary file as if it were text                           |
 ```
 # python SecretsChecker.py --path C:\secrets --ignore "node_modules" --depth 1 --output custom_name.csv
@@ -157,7 +158,8 @@ An example output is below:
 ```
 # python SecretsChecker.py --help
 usage: SecretsChecker.py [-h] (--path PATH | --file FILE | --stdin)
-                         [--depth DEPTH] [--ignore IGNORE] [--output OUTPUT]
+                         [--depth DEPTH] [--ignore IGNORE] [--grep GREP]
+                         [--output OUTPUT]
                          [--stdout]
 
 Automatically check for secrets in files
@@ -172,6 +174,7 @@ File enumeration options:
   --depth DEPTH    Depth when enumerating files, default=0
   --ignore IGNORE  Do not check files whose name or path contains the provided
                    string
+  --grep GREP      Only check files whose path contains the provided string
 
 Output options:
   --output OUTPUT  File to write results to, default="secrets_checker.csv"
